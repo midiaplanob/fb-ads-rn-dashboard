@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>RN Ad Tracker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <span class="logo">📊</span>
+    <div class="hinfo">
+      <div class="htitle">RN Ad Tracker</div>
+      <div class="hsub">Gastos Eleitorais · Rio Grande do Norte</div>
+    </div>
+    <div class="hactions">
+      <button id="export-btn" class="icon-btn" title="Exportar CSV">⬇️</button>
+      <button id="clear-btn"  class="icon-btn" title="Limpar dados">🗑️</button>
+    </div>
+  </header>
+
+  <!-- ESTADO VAZIO -->
+  <div id="empty" class="empty-state">
+    <div class="empty-icon">🔍</div>
+    <p class="empty-title">Nenhum dado ainda</p>
+    <p class="empty-hint">
+      Acesse o Meta Ad Library, vá em<br/>
+      <strong>Gastos por localização</strong> e selecione<br/>
+      <strong>Rio Grande do Norte</strong>.<br/>
+      Os dados são capturados automaticamente.
+    </p>
+    <a href="https://www.facebook.com/ads/library/report/" target="_blank" class="btn-open">
+      Abrir Meta Ad Library →
+    </a>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="hidden">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="s-cands">0</div>
+        <div class="stat-label">Candidatos</div>
+      </div>
+      <div class="stat-card accent">
+        <div class="stat-value" id="s-spend">R$ 0</div>
+        <div class="stat-label">Total Gasto</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="s-ads">0</div>
+        <div class="stat-label">Anúncios</div>
+      </div>
+    </div>
+
+    <div class="updated-row">
+      <span id="updated-label">—</span>
+      <a href="https://www.facebook.com/ads/library/report/" target="_blank" class="link-sm">Atualizar →</a>
+    </div>
+
+    <!-- Gráfico de barras -->
+    <div class="card">
+      <div class="card-title">Top Candidatos por Gasto</div>
+      <canvas id="bar-chart"></canvas>
+    </div>
+
+    <!-- Gráfico de linha -->
+    <div class="card" id="line-card">
+      <div class="card-title">
+        Evolução de Gasto
+        <select id="cand-sel"></select>
+      </div>
+      <canvas id="line-chart"></canvas>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card">
+      <div class="card-title">Todos os Candidatos</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Candidato</th><th>Gasto</th><th>Anúncios</th></tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /dashboard -->
+</div><!-- /app -->
+<script src="popup.js"></script>
+</body>
+</html>

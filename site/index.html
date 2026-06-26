@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gastos Eleitorais RN · Meta Ad Library</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0b1120;
+      --surface: #131c2e;
+      --card:    #1a2540;
+      --border:  #263352;
+      --primary: #4f8ef7;
+      --accent:  #34d399;
+      --warn:    #f59e0b;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --radius:  10px;
+      --shadow:  0 4px 24px rgba(0,0,0,.4);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 0;
+    }
+    .header-logo { font-size: 28px; }
+    .header-title h1 { font-size: 18px; font-weight: 700; }
+    .header-title p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .header-badges {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge-live   { background: rgba(52,211,153,.15); color: var(--accent); border: 1px solid rgba(52,211,153,.3); }
+    .badge-demo   { background: rgba(245,158,11,.15);  color: var(--warn);   border: 1px solid rgba(245,158,11,.3); }
+    .badge-dot    { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .btn-toggle {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 12px; font-size: 12px; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-toggle:hover { background: var(--border); }
+
+    /* ── Loading / Error ─────────────────────────────────────── */
+    #loading, #error-msg {
+      text-align: center; padding: 80px 20px;
+    }
+    #loading .spinner {
+      width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--primary); border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error-msg { color: #f87171; }
+    #error-msg pre { margin-top: 12px; font-size: 12px; color: var(--muted); }
+
+    .hidden { display: none !important; }
+
+    /* ── Main content ────────────────────────────────────────── */
+    main { padding: 28px 0; }
+
+    /* ── Stats cards ─────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .stat-value { font-size: 26px; font-weight: 700; margin-top: 6px; }
+    .stat-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .stat-card.c-primary .stat-value { color: var(--primary); }
+    .stat-card.c-accent  .stat-value { color: var(--accent); }
+    .stat-card.c-warn    .stat-value { color: var(--warn); }
+
+    /* ── Cards de gráfico ────────────────────────────────────── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px; margin-bottom: 28px;
+    }
+    @media (max-width: 720px) { .charts-row { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .chart-card.full-width { grid-column: 1 / -1; }
+
+    .card-title {
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title select {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 5px;
+      padding: 3px 8px; font-size: 11px; cursor: pointer;
+    }
+
+    /* ── Leaderboard ─────────────────────────────────────────── */
+    .leaderboard { list-style: none; }
+    .leaderboard li {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(38,51,82,.6);
+    }
+    .leaderboard li:last-child { border-bottom: none; }
+    .lb-rank {
+      width: 24px; text-align: center;
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      flex-shrink: 0;
+    }
+    .lb-rank.top1 { color: #fbbf24; }
+    .lb-rank.top2 { color: #94a3b8; }
+    .lb-rank.top3 { color: #b45309; }
+    .lb-bar-wrap { flex: 1; min-width: 0; }
+    .lb-name {
+      font-size: 13px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+    .lb-bar-track {
+      height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .lb-bar-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--primary), #818cf8);
+      transition: width .6s ease;
+    }
+    .lb-spend {
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      flex-shrink: 0; text-align: right; min-width: 90px;
+    }
+    .lb-ads {
+      font-size: 11px; color: var(--muted);
+      flex-shrink: 0; text-align: right; min-width: 50px;
+    }
+
+    /* ── Tabela completa ─────────────────────────────────────── */
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+    .table-wrapper { overflow-x: auto; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      text-align: left; padding: 8px 12px;
+      font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid rgba(38,51,82,.4); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(79,142,247,.06); }
+    td { padding: 9px 12px; }
+    td.rank-cell { color: var(--muted); width: 36px; }
+    td.name-cell { font-weight: 500; }
+    td.spend-cell { color: var(--accent); font-weight: 600; }
+    td.range-cell { color: var(--muted); font-size: 12px; }
+    td.ads-cell  { color: var(--primary); }
+
+    /* ── Footer ─────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 0;
+      text-align: center;
+      font-size: 12px; color: var(--muted);
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="header-logo">📊</div>
+      <div class="header-title">
+        <h1>Gastos em Anúncios Políticos</h1>
+        <p>Rio Grande do Norte · Meta Ad Library Report</p>
+      </div>
+      <div class="header-badges">
+        <span id="mode-badge" class="badge badge-demo">
+          <span class="badge-dot"></span>
+          dados de exemplo
+        </span>
+        <button class="btn-toggle" id="toggle-btn" onclick="toggleMode()">
+          Ver dados reais
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- CONTEÚDO -->
+<div class="container">
+  <main>
+
+    <!-- Loading -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>Carregando dados…</p>
+    </div>
+
+    <!-- Erro -->
+    <div id="error-msg" class="hidden">
+      <p>⚠️ Não foi possível carregar os dados.</p>
+      <pre id="error-detail"></pre>
+    </div>
+
+    <!-- Dashboard (oculto até carregar) -->
+    <div id="dashboard" class="hidden">
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card c-primary">
+          <div class="stat-label">Total gasto (período)</div>
+          <div class="stat-value" id="s-total">—</div>
+          <div class="stat-sub" id="s-period">—</div>
+        </div>
+        <div class="stat-card c-accent">
+          <div class="stat-label">Anunciantes ativos</div>
+          <div class="stat-value" id="s-advertisers">—</div>
+          <div class="stat-sub">na última coleta</div>
+        </div>
+        <div class="stat-card c-warn">
+          <div class="stat-label">Total de anúncios</div>
+          <div class="stat-value" id="s-ads">—</div>
+          <div class="stat-sub">na última coleta</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Última atualização</div>
+          <div class="stat-value" style="font-size:16px" id="s-updated">—</div>
+          <div class="stat-sub" id="s-days">—</div>
+        </div>
+      </div>
+
+      <!-- Gráficos linha 1 -->
+      <div class="charts-row">
+
+        <!-- Linha: evolução do gasto total -->
+        <div class="chart-card">
+          <div class="card-title">Evolução do gasto total</div>
+          <canvas id="chart-line" height="220"></canvas>
+        </div>
+
+        <!-- Linha: gasto por candidato -->
+        <div class="chart-card">
+          <div class="card-title">
+            Evolução por candidato
+            <select id="cand-select" onchange="updateCandChart()"></select>
+          </div>
+          <canvas id="chart-cand" height="220"></canvas>
+        </div>
+
+      </div>
+
+      <!-- Gráfico barras: top candidatos -->
+      <div class="chart-card full-width" style="margin-bottom:28px">
+        <div class="card-title">Ranking atual — top 15 por gasto</div>
+        <canvas id="chart-bar" height="260"></canvas>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="chart-card full-width" style="margin-bottom:28px">
+        <div class="card-title">Leaderboard</div>
+        <ul class="leaderboard" id="leaderboard"></ul>
+      </div>
+
+      <!-- Tabela completa -->
+      <div class="table-card">
+        <div class="card-title">Todos os anunciantes (última coleta)</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Página / Candidato</th>
+                <th>Gasto mínimo</th>
+                <th>Faixa</th>
+                <th>Anúncios</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    Dados coletados automaticamente via
+    <a href="https://www.facebook.com/ads/library/report/?country=BR" target="_blank">
+      Meta Ad Library Report
+    </a>
+    · atualizado diariamente pelo GitHub Actions ·
+    <a href="https://github.com/midiaplanob/fb-ads-rn-dashboard" target="_blank">
+      código-fonte
+    </a>
+  </div>
+</footer>
+
+<script>
+// ── Configuração ────────────────────────────────────────────────────────
+const REPO_RAW = 'https://raw.githubusercontent.com/midiaplanob/fb-ads-rn-dashboard/main';
+const DATA_LIVE = `${REPO_RAW}/data/history.json`;
+
+let isLive = false;    // inicia com dados de exemplo
+let history = null;    // dados carregados
+let chartLine = null;
+let chartBar  = null;
+let chartCand = null;
+
+// ── Dados de exemplo (embutidos — funcionam sem push) ────────────────────
+const EXAMPLE_DATA = {
+  "last_updated": "2026-06-26T09:00:00-03:00",
+  "snapshots": [
+    { "date": "2026-05-28", "advertisers": [
+      {"name":"João Silva - Candidato","spend_lower":45000,"spend_upper":99999,"ads_count":87},
+      {"name":"Maria Souza 50","spend_lower":32000,"spend_upper":49999,"ads_count":64},
+      {"name":"Pedro Alves Prefeito","spend_lower":18000,"spend_upper":32000,"ads_count":41},
+      {"name":"Ana Lima Vereadora","spend_lower":9500,"spend_upper":18000,"ads_count":28},
+      {"name":"Carlos Mendes RN","spend_lower":5000,"spend_upper":9999,"ads_count":19},
+      {"name":"Partido ABC RN","spend_lower":4000,"spend_upper":4999,"ads_count":15},
+      {"name":"Fernanda Costa 77","spend_lower":3200,"spend_upper":3999,"ads_count":12},
+      {"name":"Roberto Neto Senador","spend_lower":2500,"spend_upper":3199,"ads_count":9},
+      {"name":"Lúcia Paz Deputada","spend_lower":1500,"spend_upper":2499,"ads_count":7},
+      {"name":"Tiago Faria 22","spend_lower":800,"spend_upper":1499,"ads_count":5}
+    ]},
+    { "date": "2026-06-04", "advertisers": [
+      {"name":"João Silva - Candidato","spend_lower":72000,"spend_upper":99999,"ads_count":112},
+      {"name":"Maria Souza 50","spend_lower":41000,"spend_upper":49999,"ads_count":78},
+      {"name":"Pedro Alves Prefeito","spend_lower":24000,"spend_upper":32000,"ads_count":55},
+      {"name":"Ana Lima Vereadora","spend_lower":14000,"spend_upper":18000,"ads_count":38},
+      {"name":"Carlos Mendes RN","spend_lower":8500,"spend_upper":9999,"ads_count":25},
+      {"name":"Partido ABC RN","spend_lower":6200,"spend_upper":7999,"ads_count":22},
+      {"name":"Fernanda Costa 77","spend_lower":4800,"spend_upper":5999,"ads_count":17},
+      {"name":"Roberto Neto Senador","spend_lower":3900,"spend_upper":4799,"ads_count":14},
+      {"name":"Lúcia Paz Deputada","spend_lower":2800,"spend_upper":3899,"ads_count":10},
+      {"name":"Tiago Faria 22","spend_lower":1500,"spend_upper":2799,"ads_count":8}
+    ]},
+    { "date": "2026-06-11", "advertisers": [
+      {"name":"João Silva - Candidato","spend_lower":98000,"spend_upper":149999,"ads_count":143},
+      {"name":"Maria Souza 50","spend_lower":55000,"spend_upper":74999,"ads_count":95},
+      {"name":"Pedro Alves Prefeito","spend_lower":31000,"spend_upper":44999,"ads_count":71},
+      {"name":"Ana Lima Vereadora","spend_lower":19500,"spend_upper":24999,"ads_count":48},
+      {"name":"Carlos Mendes RN","spend_lower":13000,"spend_upper":17999,"ads_count":33},
+      {"name":"Partido ABC RN","spend_lower":9800,"spend_upper":12999,"ads_count":29},
+      {"name":"Fernanda Costa 77","spend_lower":7200,"spend_upper":9799,"ads_count":23},
+      {"name":"Roberto Neto Senador","spend_lower":5900,"spend_upper":7199,"ads_count":19},
+      {"name":"Lúcia Paz Deputada","spend_lower":4100,"spend_upper":5899,"ads_count":14},
+      {"name":"Tiago Faria 22","spend_lower":2800,"spend_upper":4099,"ads_count":11}
+    ]},
+    { "date": "2026-06-18", "advertisers": [
+      {"name":"João Silva - Candidato","spend_lower":138000,"spend_upper":199999,"ads_count":182},
+      {"name":"Maria Souza 50","spend_lower":74000,"spend_upper":99999,"ads_count":121},
+      {"name":"Pedro Alves Prefeito","spend_lower":44000,"spend_upper":59999,"ads_count":94},
+      {"name":"Ana Lima Vereadora","spend_lower":27000,"spend_upper":39999,"ads_count":63},
+      {"name":"Carlos Mendes RN","spend_lower":18000,"spend_upper":24999,"ads_count":44},
+      {"name":"Partido ABC RN","spend_lower":14500,"spend_upper":19999,"ads_count":38},
+      {"name":"Fernanda Costa 77","spend_lower":10800,"spend_upper":14499,"ads_count":31},
+      {"name":"Roberto Neto Senador","spend_lower":8700,"spend_upper":10799,"ads_count":26},
+      {"name":"Lúcia Paz Deputada","spend_lower":6200,"spend_upper":8699,"ads_count":19},
+      {"name":"Tiago Faria 22","spend_lower":4400,"spend_upper":6199,"ads_count":15}
+    ]},
+    { "date": "2026-06-26", "advertisers": [
+      {"name":"João Silva - Candidato","spend_lower":187000,"spend_upper":249999,"ads_count":224},
+      {"name":"Maria Souza 50","spend_lower":98000,"spend_upper":124999,"ads_count":158},
+      {"name":"Pedro Alves Prefeito","spend_lower":61000,"spend_upper":79999,"ads_count":122},
+      {"name":"Ana Lima Vereadora","spend_lower":38000,"spend_upper":54999,"ads_count":81},
+      {"name":"Carlos Mendes RN","spend_lower":24000,"spend_upper":34999,"ads_count":57},
+      {"name":"Partido ABC RN","spend_lower":20000,"spend_upper":27999,"ads_count":49},
+      {"name":"Fernanda Costa 77","spend_lower":15200,"spend_upper":19999,"ads_count":41},
+      {"name":"Roberto Neto Senador","spend_lower":12400,"spend_upper":15199,"ads_count":34},
+      {"name":"Lúcia Paz Deputada","spend_lower":9100,"spend_upper":12399,"ads_count":26},
+      {"name":"Tiago Faria 22","spend_lower":6300,"spend_upper":9099,"ads_count":20}
+    ]}
+  ]
+};
+
+// ── Toggle exemplo / real ───────────────────────────────────────────────
+function toggleMode() {
+  isLive = !isLive;
+  document.getElementById('toggle-btn').textContent = isLive ? 'Ver dados de exemplo' : 'Ver dados reais';
+  const badge = document.getElementById('mode-badge');
+  badge.className = `badge ${isLive ? 'badge-live' : 'badge-demo'}`;
+  badge.innerHTML = `<span class="badge-dot"></span> ${isLive ? 'dados reais' : 'dados de exemplo'}`;
+  loadData();
+}
+
+// ── Formatação ──────────────────────────────────────────────────────────
+const BRL = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+function fmtDate(str) {
+  if (!str) return '—';
+  const [y, m, d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function daysSince(isoStr) {
+  if (!isoStr) return null;
+  const diff = Date.now() - new Date(isoStr).getTime();
+  return Math.floor(diff / 86_400_000);
+}
+
+// ── Paleta de cores ─────────────────────────────────────────────────────
+const PALETTE = [
+  '#4f8ef7','#34d399','#f59e0b','#f472b6','#a78bfa',
+  '#38bdf8','#fb923c','#4ade80','#e879f9','#facc15',
+  '#22d3ee','#f87171','#818cf8','#86efac','#fcd34d',
+];
+
+// ── Carrega dados ───────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('error-msg').classList.add('hidden');
+
+  // Modo demo: usa dados embutidos diretamente (sem fetch)
+  if (!isLive) {
+    history = EXAMPLE_DATA;
+    render();
+    return;
+  }
+
+  // Modo live: busca o history.json do repositório
+  try {
+    const res = await fetch(DATA_LIVE + '?t=' + Date.now());
+    if (!res.ok) throw new Error(`HTTP ${res.status} ao buscar ${DATA_LIVE}`);
+    const data = await res.json();
+    if (!data.snapshots || data.snapshots.length === 0) {
+      throw new Error(
+        'O history.json está vazio.\n\nRode o scraper pelo menos uma vez:\n' +
+        'Actions → "Coletar gastos RN" → Run workflow\n\n' +
+        'Ou clique em "Ver dados de exemplo" para ver o layout.'
+      );
+    }
+    history = data;
+    render();
+  } catch (e) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('error-msg').classList.remove('hidden');
+    document.getElementById('error-detail').textContent = String(e);
+  }
+}
+
+// ── Renderiza tudo ──────────────────────────────────────────────────────
+function render() {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+
+  const snaps = history.snapshots || [];
+  if (!snaps.length) {
+    document.getElementById('error-msg').classList.remove('hidden');
+    document.getElementById('error-detail').textContent =
+      'Nenhum snapshot encontrado. Rode o scraper primeiro.';
+    document.getElementById('dashboard').classList.add('hidden');
+    return;
+  }
+
+  const latest = snaps[snaps.length - 1];
+
+  // Stats
+  const totalSpend = latest.advertisers.reduce((s, a) => s + a.spend_lower, 0);
+  const totalAds   = latest.advertisers.reduce((s, a) => s + a.ads_count, 0);
+  document.getElementById('s-total').textContent = BRL(totalSpend);
+  document.getElementById('s-period').textContent =
+    `${fmtDate(snaps[0].date)} → ${fmtDate(latest.date)}`;
+  document.getElementById('s-advertisers').textContent = latest.advertisers.length;
+  document.getElementById('s-ads').textContent = totalAds.toLocaleString('pt-BR');
+
+  const updated = history.last_updated;
+  document.getElementById('s-updated').textContent =
+    updated ? fmtDate(updated.slice(0, 10)) : fmtDate(latest.date);
+  const days = daysSince(updated || latest.date + 'T12:00:00');
+  document.getElementById('s-days').textContent =
+    days === null ? '' : days === 0 ? 'Atualizado hoje' : `há ${days} dia${days > 1 ? 's' : ''}`;
+
+  // Gráfico de linha: total gasto ao longo do tempo
+  renderLineChart(snaps);
+
+  // Gráfico de barras: top 15
+  renderBarChart(latest.advertisers.slice(0, 15));
+
+  // Leaderboard
+  renderLeaderboard(latest.advertisers.slice(0, 10));
+
+  // Select de candidatos para gráfico individual
+  populateCandSelect(latest.advertisers);
+  updateCandChart();
+
+  // Tabela
+  renderTable(latest.advertisers);
+}
+
+// ── Linha: evolução do total ────────────────────────────────────────────
+function renderLineChart(snaps) {
+  const labels = snaps.map(s => fmtDate(s.date));
+  const values = snaps.map(s => s.advertisers.reduce((acc, a) => acc + a.spend_lower, 0));
+
+  const canvas = document.getElementById('chart-line');
+  if (chartLine) chartLine.destroy();
+
+  chartLine = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Gasto total (R$)',
+        data: values,
+        borderColor: '#4f8ef7',
+        backgroundColor: 'rgba(79,142,247,.12)',
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.3,
+      }],
+    },
+    options: lineOptions('Gasto total acumulado (R$)'),
+  });
+}
+
+// ── Linha: evolução por candidato ───────────────────────────────────────
+function populateCandSelect(advertisers) {
+  const sel = document.getElementById('cand-select');
+  sel.innerHTML = '';
+  advertisers.slice(0, 20).forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.name;
+    opt.textContent = a.name.length > 28 ? a.name.slice(0, 28) + '…' : a.name;
+    sel.appendChild(opt);
+  });
+}
+
+function updateCandChart() {
+  const snaps = history?.snapshots || [];
+  const name  = document.getElementById('cand-select').value;
+  const labels = snaps.map(s => fmtDate(s.date));
+  const values = snaps.map(s => {
+    const adv = s.advertisers.find(a => a.name === name);
+    return adv ? adv.spend_lower : null;
+  });
+
+  const canvas = document.getElementById('chart-cand');
+  if (chartCand) chartCand.destroy();
+
+  chartCand = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: name,
+        data: values,
+        borderColor: '#34d399',
+        backgroundColor: 'rgba(52,211,153,.12)',
+        borderWidth: 2.5,
+        pointRadius: 4,
+        fill: true,
+        tension: 0.3,
+        spanGaps: true,
+      }],
+    },
+    options: lineOptions('Gasto (R$)'),
+  });
+}
+
+// ── Barras: ranking ─────────────────────────────────────────────────────
+function renderBarChart(advertisers) {
+  const labels = advertisers.map(a => a.name.length > 22 ? a.name.slice(0, 22) + '…' : a.name);
+  const values = advertisers.map(a => a.spend_lower);
+
+  const canvas = document.getElementById('chart-bar');
+  if (chartBar) chartBar.destroy();
+
+  chartBar = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Gasto mínimo (R$)',
+        data: values,
+        backgroundColor: PALETTE.slice(0, advertisers.length),
+        borderRadius: 5,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${BRL(ctx.raw)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#64748b', font: { size: 11 } },
+          grid: { display: false },
+          border: { color: '#263352' },
+        },
+        y: {
+          ticks: {
+            color: '#64748b',
+            callback: v => BRL(v),
+          },
+          grid: { color: 'rgba(38,51,82,.5)' },
+          border: { dash: [4, 4], color: 'transparent' },
+        },
+      },
+    },
+  });
+}
+
+// ── Leaderboard ──────────────────────────────────────────────────────────
+function renderLeaderboard(advertisers) {
+  const ul = document.getElementById('leaderboard');
+  ul.innerHTML = '';
+  const max = advertisers[0]?.spend_lower || 1;
+
+  advertisers.forEach((a, i) => {
+    const pct = Math.round((a.spend_lower / max) * 100);
+    const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="lb-rank ${rankClass}">${i + 1}</span>
+      <div class="lb-bar-wrap">
+        <div class="lb-name" title="${a.name}">${a.name}</div>
+        <div class="lb-bar-track">
+          <div class="lb-bar-fill" style="width:${pct}%;background:${PALETTE[i % PALETTE.length]}"></div>
+        </div>
+      </div>
+      <span class="lb-spend">${BRL(a.spend_lower)}</span>
+      <span class="lb-ads">${a.ads_count} anúncios</span>
+    `;
+    ul.appendChild(li);
+  });
+}
+
+// ── Tabela completa ──────────────────────────────────────────────────────
+function renderTable(advertisers) {
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  advertisers.forEach((a, i) => {
+    const tr = document.createElement('tr');
+    const range = a.spend_lower !== a.spend_upper
+      ? `${BRL(a.spend_lower)} – ${BRL(a.spend_upper)}`
+      : '—';
+    tr.innerHTML = `
+      <td class="rank-cell">${i + 1}</td>
+      <td class="name-cell">${a.name}</td>
+      <td class="spend-cell">${BRL(a.spend_lower)}</td>
+      <td class="range-cell">${range}</td>
+      <td class="ads-cell">${a.ads_count.toLocaleString('pt-BR')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Opções comuns de gráfico de linha ────────────────────────────────────
+function lineOptions(yLabel) {
+  return {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: ctx => ` ${BRL(ctx.raw)}` },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 11 } },
+        grid: { display: false },
+        border: { color: '#263352' },
+      },
+      y: {
+        ticks: {
+          color: '#64748b',
+          callback: v => BRL(v),
+        },
+        grid: { color: 'rgba(38,51,82,.5)' },
+        border: { dash: [4, 4], color: 'transparent' },
+        title: { display: false },
+      },
+    },
+  };
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+Chart.defaults.color = '#64748b';
+Chart.defaults.borderColor = '#1a2540';
+loadData();
+</script>
+</body>
+</html>

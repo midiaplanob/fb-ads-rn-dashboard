@@ -1,0 +1,81 @@
+{
+  "last_updated": "2026-06-26T09:00:00-03:00",
+  "_note": "Dados fictícios apenas para visualizar o layout do dashboard.",
+  "snapshots": [
+    {
+      "date": "2026-05-28",
+      "advertisers": [
+        {"name": "João Silva - Candidato", "spend_lower": 45000, "spend_upper": 99999, "ads_count": 87},
+        {"name": "Maria Souza 50", "spend_lower": 32000, "spend_upper": 49999, "ads_count": 64},
+        {"name": "Pedro Alves Prefeito", "spend_lower": 18000, "spend_upper": 32000, "ads_count": 41},
+        {"name": "Ana Lima Vereadora", "spend_lower": 9500, "spend_upper": 18000, "ads_count": 28},
+        {"name": "Carlos Mendes RN", "spend_lower": 5000, "spend_upper": 9999, "ads_count": 19},
+        {"name": "Partido ABC RN", "spend_lower": 4000, "spend_upper": 4999, "ads_count": 15},
+        {"name": "Fernanda Costa 77", "spend_lower": 3200, "spend_upper": 3999, "ads_count": 12},
+        {"name": "Roberto Neto Senador", "spend_lower": 2500, "spend_upper": 3199, "ads_count": 9},
+        {"name": "Lúcia Paz Deputada", "spend_lower": 1500, "spend_upper": 2499, "ads_count": 7},
+        {"name": "Tiago Faria 22", "spend_lower": 800, "spend_upper": 1499, "ads_count": 5}
+      ]
+    },
+    {
+      "date": "2026-06-04",
+      "advertisers": [
+        {"name": "João Silva - Candidato", "spend_lower": 72000, "spend_upper": 99999, "ads_count": 112},
+        {"name": "Maria Souza 50", "spend_lower": 41000, "spend_upper": 49999, "ads_count": 78},
+        {"name": "Pedro Alves Prefeito", "spend_lower": 24000, "spend_upper": 32000, "ads_count": 55},
+        {"name": "Ana Lima Vereadora", "spend_lower": 14000, "spend_upper": 18000, "ads_count": 38},
+        {"name": "Carlos Mendes RN", "spend_lower": 8500, "spend_upper": 9999, "ads_count": 25},
+        {"name": "Partido ABC RN", "spend_lower": 6200, "spend_upper": 7999, "ads_count": 22},
+        {"name": "Fernanda Costa 77", "spend_lower": 4800, "spend_upper": 5999, "ads_count": 17},
+        {"name": "Roberto Neto Senador", "spend_lower": 3900, "spend_upper": 4799, "ads_count": 14},
+        {"name": "Lúcia Paz Deputada", "spend_lower": 2800, "spend_upper": 3899, "ads_count": 10},
+        {"name": "Tiago Faria 22", "spend_lower": 1500, "spend_upper": 2799, "ads_count": 8}
+      ]
+    },
+    {
+      "date": "2026-06-11",
+      "advertisers": [
+        {"name": "João Silva - Candidato", "spend_lower": 98000, "spend_upper": 149999, "ads_count": 143},
+        {"name": "Maria Souza 50", "spend_lower": 55000, "spend_upper": 74999, "ads_count": 95},
+        {"name": "Pedro Alves Prefeito", "spend_lower": 31000, "spend_upper": 44999, "ads_count": 71},
+        {"name": "Ana Lima Vereadora", "spend_lower": 19500, "spend_upper": 24999, "ads_count": 48},
+        {"name": "Carlos Mendes RN", "spend_lower": 13000, "spend_upper": 17999, "ads_count": 33},
+        {"name": "Partido ABC RN", "spend_lower": 9800, "spend_upper": 12999, "ads_count": 29},
+        {"name": "Fernanda Costa 77", "spend_lower": 7200, "spend_upper": 9799, "ads_count": 23},
+        {"name": "Roberto Neto Senador", "spend_lower": 5900, "spend_upper": 7199, "ads_count": 19},
+        {"name": "Lúcia Paz Deputada", "spend_lower": 4100, "spend_upper": 5899, "ads_count": 14},
+        {"name": "Tiago Faria 22", "spend_lower": 2800, "spend_upper": 4099, "ads_count": 11}
+      ]
+    },
+    {
+      "date": "2026-06-18",
+      "advertisers": [
+        {"name": "João Silva - Candidato", "spend_lower": 138000, "spend_upper": 199999, "ads_count": 182},
+        {"name": "Maria Souza 50", "spend_lower": 74000, "spend_upper": 99999, "ads_count": 121},
+        {"name": "Pedro Alves Prefeito", "spend_lower": 44000, "spend_upper": 59999, "ads_count": 94},
+        {"name": "Ana Lima Vereadora", "spend_lower": 27000, "spend_upper": 39999, "ads_count": 63},
+        {"name": "Carlos Mendes RN", "spend_lower": 18000, "spend_upper": 24999, "ads_count": 44},
+        {"name": "Partido ABC RN", "spend_lower": 14500, "spend_upper": 19999, "ads_count": 38},
+        {"name": "Fernanda Costa 77", "spend_lower": 10800, "spend_upper": 14499, "ads_count": 31},
+        {"name": "Roberto Neto Senador", "spend_lower": 8700, "spend_upper": 10799, "ads_count": 26},
+        {"name": "Lúcia Paz Deputada", "spend_lower": 6200, "spend_upper": 8699, "ads_count": 19},
+        {"name": "Tiago Faria 22", "spend_lower": 4400, "spend_upper": 6199, "ads_count": 15}
+      ]
+    },
+    {
+      "date": "2026-06-26",
+      "advertisers": [
+        {"name": "João Silva - Candidato", "spend_lower": 187000, "spend_upper": 249999, "ads_count": 224},
+        {"name": "Maria Souza 50", "spend_lower": 98000, "spend_upper": 124999, "ads_count": 158},
+        {"name": "Pedro Alves Prefeito", "spend_lower": 61000, "spend_upper": 79999, "ads_count": 122},
+        {"name": "Ana Lima Vereadora", "spend_lower": 38000, "spend_upper": 54999, "ads_count": 81},
+        {"name": "Carlos Mendes RN", "spend_lower": 24000, "spend_upper": 34999, "ads_count": 57},
+        {"name": "Partido ABC RN", "spend_lower": 20000, "spend_upper": 27999, "ads_count": 49},
+        {"name": "Fernanda Costa 77", "spend_lower": 15200, "spend_upper": 19999, "ads_count": 41},
+        {"name": "Roberto Neto Senador", "spend_lower": 12400, "spend_upper": 15199, "ads_count": 34},
+        {"name": "Lúcia Paz Deputada", "spend_lower": 9100, "spend_upper": 12399, "ads_count": 26},
+        {"name": "Tiago Faria 22", "spend_lower": 6300, "spend_upper": 9099, "ads_count": 20}
+      ]
+    }
+  ]
+}

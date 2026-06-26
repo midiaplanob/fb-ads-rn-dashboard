@@ -1,0 +1,48 @@
+name: Coletar gastos RN
+
+on:
+  schedule:
+    # 09:00 horário de Brasília = 12:00 UTC (BRT = UTC-3)
+    - cron: "0 12 * * *"
+  workflow_dispatch: # permite rodar manualmente pela interface do GitHub
+
+permissions:
+  contents: write # necessário para commitar o history.json atualizado
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📥 Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      - name: 📦 Instalar dependências Python
+        run: pip install -r scraper/requirements.txt
+
+      - name: 🌐 Instalar Playwright Chromium
+        run: playwright install chromium --with-deps
+
+      - name: 🤖 Executar scraper
+        run: python scraper/scrape_report.py
+
+      - name: 💾 Commitar dados atualizados
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/history.json
+          if git diff --staged --quiet; then
+            echo "Nenhum dado novo — nada a commitar."
+          else
+            DATE=$(TZ='America/Sao_Paulo' date +'%Y-%m-%d')
+            git commit -m "data: coleta automática $DATE"
+            git push
+          fi

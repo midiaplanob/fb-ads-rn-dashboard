@@ -1,0 +1,48 @@
+╔══════════════════════════════════════════════════════════╗
+║        RN Ad Tracker — Como Instalar no Chrome          ║
+╚══════════════════════════════════════════════════════════╝
+
+PASSO 1 — GERAR OS ÍCONES (1 minuto)
+──────────────────────────────────────────────────────────
+1. Abra o arquivo "gerar-icones.html" no Chrome
+   (duplo clique → abre no Chrome)
+2. Três arquivos serão baixados automaticamente:
+   icon16.png, icon48.png, icon128.png
+3. Mova esses três arquivos para a pasta:
+   chrome-extension/icons/
+   (crie a pasta "icons" se não existir)
+
+
+PASSO 2 — INSTALAR A EXTENSÃO
+──────────────────────────────────────────────────────────
+1. Abra o Chrome e acesse: chrome://extensions
+2. Ative o "Modo do desenvolvedor" (canto superior direito)
+3. Clique em "Carregar sem compactação"
+4. Selecione a pasta "chrome-extension"
+   (a pasta que contém o manifest.json)
+5. A extensão aparecerá na barra de ferramentas
+
+
+PASSO 3 — USAR
+──────────────────────────────────────────────────────────
+1. Acesse: https://www.facebook.com/ads/library/report/
+2. Vá até "Gastos por localização"
+3. Selecione "Rio Grande do Norte"
+4. Aguarde a tabela carregar (~5 segundos)
+5. Clique no ícone 📊 na barra do Chrome
+
+Os dados são capturados automaticamente toda vez que você
+visitar a página. Quanto mais visitas, mais histórico
+acumulado no gráfico de evolução.
+
+
+FUNCIONALIDADES DO DASHBOARD
+──────────────────────────────────────────────────────────
+📊  Gráfico de barras — top 12 candidatos por gasto
+📈  Gráfico de linha  — evolução temporal por candidato
+📋  Tabela completa   — todos com mini-barra de gasto
+⬇️  Exportar CSV      — salva os dados em planilha
+🗑️  Limpar dados      — apaga o histórico local
+
+Todos os dados ficam armazenados LOCALMENTE no seu Chrome.
+Nada é enviado para servidores externos.

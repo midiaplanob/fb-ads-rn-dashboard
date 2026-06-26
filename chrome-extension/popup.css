@@ -1,0 +1,129 @@
+/* ── Reset ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f172a;
+  --surface: #1e293b;
+  --border:  #334155;
+  --primary: #3b82f6;
+  --green:   #22c55e;
+  --cyan:    #22d3ee;
+  --text:    #f1f5f9;
+  --muted:   #94a3b8;
+  --r:       8px;
+}
+
+html, body { width: 700px; background: var(--bg); color: var(--text);
+  font: 13px/1.4 'Segoe UI', system-ui, sans-serif; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.hidden { display: none !important; }
+
+/* ── Header ──────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.logo { font-size: 22px; }
+.hinfo { flex: 1; }
+.htitle { font-size: 15px; font-weight: 700; }
+.hsub   { font-size: 11px; color: var(--muted); }
+.hactions { display: flex; gap: 4px; }
+
+.icon-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 15px; padding: 4px 7px; border-radius: var(--r);
+  transition: background .15s; color: var(--muted);
+}
+.icon-btn:hover { background: var(--border); color: var(--text); }
+
+/* ── Empty state ─────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 44px 24px; text-align: center;
+}
+.empty-icon  { font-size: 44px; }
+.empty-title { font-size: 15px; font-weight: 600; }
+.empty-hint  { color: var(--muted); line-height: 1.7; }
+
+.btn-open {
+  display: inline-block; margin-top: 8px;
+  background: var(--primary); color: #fff;
+  padding: 8px 20px; border-radius: var(--r);
+  font-weight: 600; font-size: 13px; transition: opacity .15s;
+}
+.btn-open:hover { opacity: .85; text-decoration: none; }
+
+/* ── Stats row ───────────────────────────────────────── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 8px; padding: 12px 16px;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 14px; text-align: center;
+}
+.stat-card.accent { border-color: var(--primary); }
+.stat-value { font-size: 18px; font-weight: 700; }
+.stat-card.accent .stat-value { color: var(--primary); }
+.stat-label { font-size: 10px; color: var(--muted); margin-top: 2px;
+  text-transform: uppercase; letter-spacing: .05em; }
+
+/* ── Updated row ─────────────────────────────────────── */
+.updated-row {
+  display: flex; justify-content: space-between;
+  padding: 2px 16px 10px; font-size: 11px; color: var(--muted);
+}
+.link-sm { font-size: 11px; }
+
+/* ── Cards ───────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); margin: 0 16px 12px; padding: 12px 14px;
+}
+.card-title {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title select {
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 2px 6px; font-size: 11px; cursor: pointer;
+}
+
+canvas { display: block; width: 100% !important; }
+
+/* ── Tabela ──────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin-top: 8px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  text-align: left; padding: 5px 10px;
+  font-size: 10px; color: var(--muted); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid rgba(51,65,85,.4); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(59,130,246,.06); }
+td { padding: 7px 10px; }
+td.c-rank  { color: var(--muted); width: 30px; }
+td.c-name  { font-weight: 500; max-width: 220px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+td.c-spend { color: var(--green); font-weight: 600; }
+td.c-ads   { color: var(--cyan); }
+
+/* mini-barra na coluna de gasto */
+.spend-wrap { position: relative; }
+.spend-bar  { height: 3px; background: var(--green); border-radius: 2px;
+  margin-top: 3px; opacity: .45; }

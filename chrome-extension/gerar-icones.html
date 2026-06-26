@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerar ícones — RN Ad Tracker</title>
+  <style>
+    body { font-family: system-ui; background:#0f172a; color:#f1f5f9;
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; min-height:100vh; gap:16px; }
+    p  { color:#94a3b8; }
+    .ok { color:#22c55e; font-size:18px; }
+  </style>
+</head>
+<body>
+<p class="ok" id="msg">⏳ Gerando ícones…</p>
+<p>Três arquivos PNG serão baixados automaticamente.<br>
+   Mova-os para a pasta <strong>icons/</strong> dentro de <strong>chrome-extension/</strong>.</p>
+
+<script>
+function drawIcon(size) {
+  const c   = document.createElement('canvas');
+  c.width   = size;
+  c.height  = size;
+  const ctx = c.getContext('2d');
+  const r   = size * 0.18;
+
+  /* fundo arredondado */
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, r);
+  ctx.fill();
+
+  /* borda sutil */
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth   = size * 0.04;
+  ctx.beginPath();
+  ctx.roundRect(ctx.lineWidth/2, ctx.lineWidth/2,
+    size - ctx.lineWidth, size - ctx.lineWidth, r - ctx.lineWidth/2);
+  ctx.stroke();
+
+  /* barras do gráfico */
+  const bars = [
+    { x: 0.12, h: 0.55, color: '#60a5fa' },
+    { x: 0.32, h: 1.00, color: '#3b82f6' },
+    { x: 0.52, h: 0.40, color: '#818cf8' },
+    { x: 0.72, h: 0.75, color: '#22d3ee' },
+  ];
+
+  const pad  = size * 0.10;
+  const bw   = size * 0.14;
+  const maxH = size * 0.60;
+  const base = size - pad - size * 0.06;
+
+  bars.forEach(b => {
+    const bh = maxH * b.h;
+    const x  = size * b.x;
+    const y  = base - bh;
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.roundRect(x, y, bw, bh, size * 0.02);
+    ctx.fill();
+  });
+
+  /* linha de base */
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth   = size * 0.025;
+  ctx.beginPath();
+  ctx.moveTo(pad * 0.5, base + size * 0.02);
+  ctx.lineTo(size - pad * 0.5, base + size * 0.02);
+  ctx.stroke();
+
+  return c;
+}
+
+async function generate() {
+  for (const size of [16, 48, 128]) {
+    const canvas = drawIcon(size);
+    await new Promise(resolve => {
+      canvas.toBlob(blob => {
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = `icon${size}.png`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); resolve(); }, 600);
+      });
+    });
+  }
+  document.getElementById('msg').textContent = '✅ Ícones baixados! Mova-os para a pasta icons/';
+}
+
+generate();
+</script>
+</body>
+</html>
