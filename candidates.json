@@ -1,0 +1,26 @@
+{
+  "_instrucoes": "Liste aqui os perfis/candidatos que deseja monitorar. O scraper busca todos e filtra apenas estes. Se a lista estiver vazia ([]), todos os anunciantes do RN aparecem no dashboard.",
+  "candidates": [
+    {
+      "name": "Fábio Dantas",
+      "party": "Solidariedade",
+      "notes": "Candidato ao governo do RN"
+    },
+    {
+      "name": "Carlos Eduardo",
+      "party": "PDT",
+      "notes": "Candidato ao governo do RN"
+    },
+    {
+      "name": "Rogério Marinho",
+      "party": "PL",
+      "notes": "Senador / candidato"
+    },
+    {
+      "name": "Natália Bonavides",
+      "party": "PSOL",
+      "notes": "Deputada federal"
+    }
+  ],
+  "_dica": "Para encontrar o page_id de um candidato: vá à página deles no Facebook, clique em 'Sobre' e procure o ID numérico na URL. Adicione como campo 'page_id': '123456789' para busca mais precisa."
+}

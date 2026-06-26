@@ -2,15 +2,20 @@
 """
 scrape_report.py
 ================
-Coleta dados de gasto em anúncios políticos do Meta Ad Library Report
-para o Rio Grande do Norte e atualiza data/history.json.
+Coleta dados de gasto em anúncios políticos do Meta Ad Library para o
+Rio Grande do Norte e atualiza data/history.json.
+
+Estratégia dupla:
+  1. Baixa o CSV do relatório do RN (mais completo, tem dados regionais)
+  2. Fallback: busca cada candidato individualmente na Ad Library
+
+Configuração de candidatos:
+  Edite candidates.json na raiz do projeto para listar os perfis a monitorar.
+  Se a lista estiver vazia, todos os anunciantes do RN são capturados.
 
 Uso:
-    python scraper/scrape_report.py          # modo headless (CI)
+    python scraper/scrape_report.py          # modo headless (CI/GitHub Actions)
     python scraper/scrape_report.py --debug  # abre o navegador visível
-
-Se precisar ajustar seletores após uma mudança de layout do Meta,
-edite as listas REGION_SELECTORS e DOWNLOAD_SELECTORS logo abaixo.
 """
 
 import csv
@@ -31,23 +36,21 @@ except ImportError:
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
 # ── Configurações ──────────────────────────────────────────────────────────
-REPORT_URL   = "https://www.facebook.com/ads/library/report/?country=BR"
-REGION_NAME  = "Rio Grande do Norte"
-TZ_BRT       = ZoneInfo("America/Sao_Paulo")
-TIMEOUT_MS   = 60_000
-HEADLESS     = "--debug" not in sys.argv
+REPORT_URL  = "https://www.facebook.com/ads/library/report/?country=BR"
+LIBRARY_URL = "https://www.facebook.com/ads/library/"
+REGION_NAME = "Rio Grande do Norte"
+TZ_BRT      = ZoneInfo("America/Sao_Paulo")
+TIMEOUT_MS  = 60_000
+HEADLESS    = "--debug" not in sys.argv
 
 ROOT_DIR     = Path(__file__).resolve().parent.parent
 DATA_DIR     = ROOT_DIR / "data"
 HISTORY_FILE = DATA_DIR / "history.json"
 DOWNLOAD_DIR = DATA_DIR / "_downloads"
+CANDIDATES_FILE = ROOT_DIR / "candidates.json"
 
 # ── Seletores (fallback em ordem) ──────────────────────────────────────────
-# Se o Meta mudar o layout, inspecione a página e adicione o novo seletor
-# no INÍCIO de cada lista para que seja tentado primeiro.
-
 REGION_SELECTORS = [
-    # Caixa de busca de localização/região
     "input[placeholder*='Rio' i]",
     "input[placeholder*='região' i]",
     "input[placeholder*='regiao' i]",
@@ -61,11 +64,9 @@ REGION_SELECTORS = [
     "input[aria-label*='location' i]",
     "[data-testid*='region'] input",
     "[data-testid*='location'] input",
-    "[data-testid*='estado'] input",
 ]
 
 DOWNLOAD_SELECTORS = [
-    # Botão de download do CSV
     "button[aria-label*='Download' i]",
     "button[aria-label*='Baixar' i]",
     "a[download]",
@@ -90,32 +91,83 @@ COOKIE_CLOSE_SELECTORS = [
 ]
 
 
-# ── Parser de faixa de gasto ───────────────────────────────────────────────
+# ── Candidatos monitorados ─────────────────────────────────────────────────
+def load_candidates() -> list[dict]:
+    """Carrega a lista de candidatos do candidates.json."""
+    if not CANDIDATES_FILE.exists():
+        return []
+    try:
+        data = json.loads(CANDIDATES_FILE.read_text(encoding="utf-8"))
+        candidates = data.get("candidates", [])
+        if candidates:
+            names = [c["name"] for c in candidates]
+            print(f"  📋 {len(candidates)} candidatos monitorados: {', '.join(names)}")
+        return candidates
+    except Exception as e:
+        print(f"  ⚠ Erro ao ler candidates.json: {e}")
+        return []
+
+
+def filter_by_candidates(advertisers: list[dict], candidates: list[dict]) -> list[dict]:
+    """
+    Se candidates não é vazio, retorna apenas os anunciantes que correspondem.
+    Usa correspondência parcial no nome (case-insensitive).
+    Se nenhum candidato for encontrado nos dados, retorna todos (não oculta nada).
+    """
+    if not candidates:
+        return advertisers  # Sem filtro: retorna todos
+
+    tracked = []
+    not_found = []
+
+    for cand in candidates:
+        cand_name = cand["name"].lower()
+        cand_id   = str(cand.get("page_id", ""))
+        match = None
+
+        # Tenta por page_id primeiro (mais preciso)
+        if cand_id:
+            match = next((a for a in advertisers if str(a.get("page_id", "")) == cand_id), None)
+
+        # Fallback: correspondência parcial no nome
+        if not match:
+            match = next(
+                (a for a in advertisers if cand_name in a["name"].lower() or a["name"].lower() in cand_name),
+                None
+            )
+
+        if match:
+            # Enriquece com dados do candidates.json
+            enriched = dict(match)
+            if cand.get("party"):
+                enriched["party"] = cand["party"]
+            tracked.append(enriched)
+        else:
+            not_found.append(cand["name"])
+
+    if not_found:
+        print(f"  ⚠ Sem dados de gasto para: {', '.join(not_found)}")
+        print("    (Podem não ter anunciado no RN no período, ou o nome difere do cadastrado)")
+
+    # Se nenhum candidato foi encontrado, retorna todos para não perder dados
+    return tracked if tracked else advertisers
+
+
+# ── Parser de gasto ────────────────────────────────────────────────────────
 def parse_spend(text: str) -> tuple[int, int]:
-    """
-    Converte texto de gasto para (lower, upper) em centavos de BRL.
-    Exemplos aceitos:
-      "100 - 499"   → (100, 499)
-      "Menos de 100" → (0, 100)
-      "≥ 1000000"   → (1_000_000, 1_000_000)
-      "1000"        → (1000, 1000)
-    """
     t = re.sub(r"[^\d\-––a-zA-Z\s]", "", str(text)).strip()
 
-    # "100 - 499" ou "100–499"
     m = re.search(r"(\d[\d\s]*)\s*[-––]\s*(\d[\d\s]*)", t)
     if m:
         lo = int(re.sub(r"\s", "", m.group(1)))
         hi = int(re.sub(r"\s", "", m.group(2)))
         return lo, hi
 
-    # "Menos de 100" / "Less than 100"
     m = re.search(r"(?:menos\s+de|less\s+than)\s+(\d[\d\s]*)", t, re.I)
     if m:
         hi = int(re.sub(r"\s", "", m.group(1)))
         return 0, hi
 
-    # Número isolado
     m = re.search(r"\d[\d\s]*", t)
     if m:
         n = int(re.sub(r"\s", "", m.group()))
@@ -126,11 +178,7 @@ def parse_spend(text: str) -> tuple[int, int]:
 
 # ── Parser do CSV ──────────────────────────────────────────────────────────
 def parse_csv(content: str) -> list[dict]:
-    """Interpreta o CSV oficial do Meta Ad Library Report."""
     advertisers = []
-
-    # O Meta às vezes adiciona linhas de cabeçalho extras antes do CSV real
-    # Encontra a primeira linha que parece um cabeçalho CSV
     lines = content.splitlines()
     start = 0
     for i, line in enumerate(lines):
@@ -147,35 +195,27 @@ def parse_csv(content: str) -> list[dict]:
         return []
 
     for row in reader:
-        # Normaliza nomes de coluna
         norm = {k.lower().strip().strip('"'): v.strip().strip('"') for k, v in row.items() if k}
 
         name = (
-            norm.get("page name")
-            or norm.get("page_name")
-            or norm.get("nome da página")
-            or norm.get("nome da pagina")
-            or norm.get("advertiser")
-            or ""
+            norm.get("page name") or norm.get("page_name")
+            or norm.get("nome da página") or norm.get("nome da pagina")
+            or norm.get("advertiser") or ""
         )
         if not name:
             continue
 
+        page_id = norm.get("page id") or norm.get("page_id") or norm.get("id") or ""
+
         spend_raw = (
-            norm.get("amount spent (brl)")
-            or norm.get("amount_spent_brl")
-            or norm.get("amount spent")
-            or norm.get("valor gasto (brl)")
-            or norm.get("gasto (brl)")
-            or "0"
+            norm.get("amount spent (brl)") or norm.get("amount_spent_brl")
+            or norm.get("amount spent") or norm.get("valor gasto (brl)")
+            or norm.get("gasto (brl)") or "0"
         )
 
         ads_raw = (
-            norm.get("number of ads in library")
-            or norm.get("number of ads")
-            or norm.get("número de anúncios")
-            or norm.get("num anuncios")
-            or "0"
+            norm.get("number of ads in library") or norm.get("number of ads")
+            or norm.get("número de anúncios") or norm.get("num anuncios") or "0"
         )
 
         lo, hi = parse_spend(spend_raw)
@@ -184,16 +224,182 @@ def parse_csv(content: str) -> list[dict]:
         except ValueError:
             ads_count = 0
 
-        advertisers.append(
-            {
-                "name": name,
-                "spend_lower": lo,
-                "spend_upper": hi,
-                "ads_count": ads_count,
-            }
-        )
+        advertisers.append({
+            "name":         name,
+            "page_id":      page_id,
+            "spend_lower":  lo,
+            "spend_upper":  hi,
+            "ads_count":    ads_count,
+        })
 
     return advertisers
+
+
+# ── Estratégia 1: Download do relatório regional ───────────────────────────
+def strategy_report(page) -> str | None:
+    """Tenta baixar o CSV do relatório do Meta Ad Library para o RN."""
+    print(f"\n[Estratégia 1] Relatório regional — {REPORT_URL}")
+    try:
+        page.goto(REPORT_URL, timeout=TIMEOUT_MS, wait_until="domcontentloaded")
+        page.wait_for_timeout(4_000)
+    except Exception as e:
+        print(f"  ✗ Erro ao abrir página: {e}")
+        return None
+
+    # Fecha popups de cookies/login
+    for sel in COOKIE_CLOSE_SELECTORS:
+        try:
+            el = page.locator(sel).first
+            if el.is_visible(timeout=1_500):
+                el.click()
+                page.wait_for_timeout(600)
+                break
+        except Exception:
+            pass
+
+    # Seleciona Rio Grande do Norte
+    region_ok = False
+    for sel in REGION_SELECTORS:
+        try:
+            inp = page.locator(sel).first
+            if not inp.is_visible(timeout=2_500):
+                continue
+            inp.click()
+            inp.fill("")
+            inp.type(REGION_NAME[:6], delay=80)
+            page.wait_for_timeout(1_500)
+
+            option = page.locator(
+                f"li:has-text('{REGION_NAME}'), [role='option']:has-text('{REGION_NAME}')"
+            ).first
+            if option.is_visible(timeout=3_500):
+                option.click()
+                page.wait_for_timeout(2_500)
+                region_ok = True
+                print(f"  ✓ Região selecionada")
+                break
+            else:
+                inp.press("Enter")
+                page.wait_for_timeout(2_000)
+                region_ok = True
+                print(f"  ✓ Região confirmada (Enter)")
+                break
+        except Exception:
+            pass
+
+    if not region_ok:
+        print("  ⚠ Não conseguiu selecionar a região — tentando download sem filtro")
+
+    page.wait_for_timeout(3_000)
+
+    # Tenta download
+    for sel in DOWNLOAD_SELECTORS:
+        try:
+            btn = page.locator(sel).first
+            if not btn.is_visible(timeout=2_500):
+                continue
+            with page.expect_download(timeout=30_000) as dl_info:
+                btn.click()
+            dl = dl_info.value
+            dl_path = DOWNLOAD_DIR / dl.suggested_filename
+            dl.save_as(dl_path)
+            content = dl_path.read_text(encoding="utf-8-sig", errors="replace")
+            print(f"  ✓ CSV baixado: {dl.suggested_filename}")
+            return content
+        except Exception as e:
+            print(f"  ✗ {sel!r}: {e}")
+
+    return None
+
+
+# ── Estratégia 2: Busca individual por candidato ───────────────────────────
+def strategy_individual(page, candidates: list[dict]) -> list[dict]:
+    """
+    Para cada candidato em candidates.json, abre a página do Ad Library
+    e extrai dados de gasto. Usada como fallback quando o download CSV falha.
+    """
+    if not candidates:
+        print("\n[Estratégia 2] Sem candidatos listados — pulando busca individual")
+        return []
+
+    print(f"\n[Estratégia 2] Busca individual para {len(candidates)} candidatos")
+    results = []
+
+    for cand in candidates:
+        name    = cand["name"]
+        page_id = cand.get("page_id", "")
+        print(f"\n  🔍 {name} ...")
+
+        try:
+            if page_id:
+                url = (
+                    f"{LIBRARY_URL}?active_status=all"
+                    f"&ad_type=political_and_issue_ads"
+                    f"&country=BR&id={page_id}"
+                )
+            else:
+                url = (
+                    f"{LIBRARY_URL}?active_status=all"
+                    f"&ad_type=political_and_issue_ads"
+                    f"&country=BR&q={name.replace(' ', '+')}"
+                    f"&search_type=page"
+                )
+
+            page.goto(url, timeout=TIMEOUT_MS, wait_until="domcontentloaded")
+            page.wait_for_timeout(3_500)
+
+            # Fecha popups
+            for sel in COOKIE_CLOSE_SELECTORS:
+                try:
+                    el = page.locator(sel).first
+                    if el.is_visible(timeout=1_000):
+                        el.click()
+                        break
+                except Exception:
+                    pass
+
+            page.wait_for_timeout(2_000)
+            text = page.inner_text("body")
+
+            # Extrai número de anúncios
+            ads_count = 0
+            m = re.search(r"(\d[\d\.]*)\s*(?:anúncio|ad|resultado)", text, re.I)
+            if m:
+                ads_count = int(re.sub(r"\D", "", m.group(1)))
+
+            # Extrai gasto (Meta mostra range de BRL para anúncios políticos no Brasil)
+            lo, hi = 0, 0
+            m = re.search(
+                r"R\$\s*([\d\.,]+)\s*[-–]\s*R\$\s*([\d\.,]+)|"
+                r"([\d\.,]+)\s*[-–]\s*([\d\.,]+)\s*BRL|"
+                r"Menos de R\$\s*([\d\.,]+)|"
+                r"Less than R\$\s*([\d\.,]+)",
+                text, re.I
+            )
+            if m:
+                lo, hi = parse_spend(m.group(0))
+
+            results.append({
+                "name":        name,
+                "page_id":     page_id,
+                "spend_lower": lo,
+                "spend_upper": hi,
+                "ads_count":   ads_count,
+                "party":       cand.get("party", ""),
+                "source":      "individual_search",
+            })
+            spend_str = f"R$ {lo:,} – {hi:,}" if lo or hi else "sem dados de gasto"
+            print(f"    ✓ {ads_count} anúncios | {spend_str}")
+
+        except Exception as e:
+            print(f"    ✗ Erro: {e}")
+            results.append({
+                "name": name, "page_id": page_id,
+                "spend_lower": 0, "spend_upper": 0, "ads_count": 0,
+                "party": cand.get("party", ""), "source": "error",
+            })
+
+    return results
 
 
 # ── Persistência ───────────────────────────────────────────────────────────
@@ -214,8 +420,16 @@ def today_brt() -> str:
     return datetime.now(TZ_BRT).strftime("%Y-%m-%d")
 
 
-# ── Scraper Playwright ─────────────────────────────────────────────────────
-def scrape() -> list[dict]:
+# ── Main ───────────────────────────────────────────────────────────────────
+def main():
+    today = today_brt()
+    print(f"\n{'='*55}")
+    print(f"  RN Ad Tracker — coleta automática de {today}")
+    print(f"{'='*55}\n")
+
+    candidates = load_candidates()
+    advertisers = []
+
     DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as pw:
@@ -235,146 +449,55 @@ def scrape() -> list[dict]:
         )
         page = ctx.new_page()
 
-        # ── 1. Abre a página ───────────────────────────────────────────────
-        print(f"[1/5] Abrindo {REPORT_URL} ...")
-        page.goto(REPORT_URL, timeout=TIMEOUT_MS, wait_until="domcontentloaded")
-        page.wait_for_timeout(4_000)  # JS da página carregar
+        # ── Estratégia 1: download do CSV regional ─────────────────────────
+        csv_content = strategy_report(page)
 
-        # ── 2. Fecha cookie/login popup ────────────────────────────────────
-        print("[2/5] Verificando popups ...")
-        for sel in COOKIE_CLOSE_SELECTORS:
-            try:
-                el = page.locator(sel).first
-                if el.is_visible(timeout=2_000):
-                    el.click()
-                    page.wait_for_timeout(800)
-                    print(f"  ✓ Popup fechado: {sel!r}")
-                    break
-            except Exception:
-                pass
+        if csv_content:
+            print("\nParseando CSV ...")
+            all_advertisers = parse_csv(csv_content)
+            print(f"  ✓ {len(all_advertisers)} anunciantes no relatório")
 
-        # ── 3. Seleciona Rio Grande do Norte ───────────────────────────────
-        print(f"[3/5] Selecionando '{REGION_NAME}' ...")
-        region_ok = False
+            if all_advertisers:
+                advertisers = filter_by_candidates(all_advertisers, candidates)
+                print(f"  ✓ {len(advertisers)} após filtro de candidatos")
 
-        for sel in REGION_SELECTORS:
-            try:
-                inp = page.locator(sel).first
-                if not inp.is_visible(timeout=3_000):
-                    continue
-
-                inp.click()
-                inp.fill("")
-                inp.type(REGION_NAME[:6], delay=80)  # digita devagar
-                page.wait_for_timeout(1_500)
-
-                # Tenta clicar na opção da lista
-                option = page.locator(f"li:has-text('{REGION_NAME}'), [role='option']:has-text('{REGION_NAME}')").first
-                if option.is_visible(timeout=4_000):
-                    option.click()
-                    page.wait_for_timeout(2_500)
-                    region_ok = True
-                    print(f"  ✓ Região selecionada (seletor: {sel!r})")
-                    break
-                else:
-                    # Fallback: pressiona Enter
-                    inp.press("Enter")
-                    page.wait_for_timeout(2_000)
-                    region_ok = True
-                    print(f"  ✓ Região confirmada com Enter (seletor: {sel!r})")
-                    break
-            except Exception as e:
-                print(f"  ✗ {sel!r}: {e}")
-
-        if not region_ok:
-            print(
-                "  ⚠ Não conseguiu selecionar a região.\n"
-                "    O CSV do Brasil completo será baixado e filtrado localmente."
-            )
-
-        # ── 4. Aguarda dados carregarem ────────────────────────────────────
-        print("[4/5] Aguardando dados ...")
-        page.wait_for_timeout(3_000)
-
-        # ── 5. Clica em Download ───────────────────────────────────────────
-        print("[5/5] Baixando CSV ...")
-        csv_content = None
-
-        for sel in DOWNLOAD_SELECTORS:
-            try:
-                btn = page.locator(sel).first
-                if not btn.is_visible(timeout=3_000):
-                    continue
-
-                with page.expect_download(timeout=30_000) as dl_info:
-                    btn.click()
-
-                dl = dl_info.value
-                dl_path = DOWNLOAD_DIR / dl.suggested_filename
-                dl.save_as(dl_path)
-                csv_content = dl_path.read_text(encoding="utf-8-sig", errors="replace")
-                print(f"  ✓ Download: {dl.suggested_filename}")
-                break
-            except Exception as e:
-                print(f"  ✗ {sel!r}: {e}")
+        # ── Estratégia 2: busca individual (fallback) ──────────────────────
+        if not advertisers and candidates:
+            advertisers = strategy_individual(page, candidates)
 
         browser.close()
 
-    if not csv_content:
-        raise RuntimeError(
-            "\n"
-            "❌ Não foi possível baixar o CSV.\n\n"
-            "O que fazer:\n"
-            "  1. Rode com --debug para abrir o navegador visível:\n"
-            "       python scraper/scrape_report.py --debug\n"
-            "  2. Vá até o botão de download manualmente e inspecione o elemento\n"
-            "     (botão direito → 'Inspecionar').\n"
-            "  3. Adicione o seletor correto no INÍCIO da lista DOWNLOAD_SELECTORS\n"
-            "     em scraper/scrape_report.py.\n"
+    if not advertisers:
+        print(
+            "\n❌ Nenhum dado coletado.\n\n"
+            "Possíveis causas:\n"
+            "  - Meta exige login para acessar o relatório\n"
+            "  - O layout da página mudou (seletores desatualizados)\n"
+            "  - Candidatos do candidates.json não anunciaram no período\n\n"
+            "Rode com --debug para inspecionar o navegador:\n"
+            "  python scraper/scrape_report.py --debug\n"
         )
-
-    return csv_content
-
-
-# ── Main ───────────────────────────────────────────────────────────────────
-def main():
-    today = today_brt()
-    print(f"\n{'='*50}")
-    print(f"  RN Ad Tracker — coleta de {today}")
-    print(f"{'='*50}\n")
-
-    raw_csv = scrape()
-
-    print("\nParseando CSV ...")
-    advertisers = parse_csv(raw_csv)
-
-    # Se a região não foi selecionada, tenta filtrar no CSV do Brasil
-    # (Meta inclui campo de região em algumas versões do CSV)
-    if not any(True for _ in advertisers):
-        print("⚠ CSV vazio ou não parseável.")
         sys.exit(1)
 
-    print(f"  ✓ {len(advertisers)} anunciantes encontrados")
-
-    # Ordena por gasto decrescente
+    # Ordena por gasto
     advertisers.sort(key=lambda x: x["spend_lower"], reverse=True)
 
-    # Atualiza history.json
-    history = load_history()
+    # Salva no history.json
+    history   = load_history()
     snapshots = history.get("snapshots", [])
-
-    # Remove snapshot do mesmo dia se já existir
     snapshots = [s for s in snapshots if s["date"] != today]
-    snapshots.append({"date": today, "advertisers": advertisers})
-
-    # Mantém últimos 365 dias, em ordem cronológica
+    snapshots.append({
+        "date":        today,
+        "advertisers": advertisers,
+        "source":      "report_csv" if csv_content else "individual_search",
+    })
     snapshots = sorted(snapshots, key=lambda s: s["date"])[-365:]
 
-    history["snapshots"] = snapshots
+    history["snapshots"]    = snapshots
     history["last_updated"] = datetime.now(TZ_BRT).isoformat()
 
     save_history(history)
-    print(f"\n✅ data/history.json atualizado — {len(advertisers)} anunciantes em {today}")
+    print(f"\n✅ Concluído — {len(advertisers)} candidatos salvos em data/history.json")
 
 
 if __name__ == "__main__":
